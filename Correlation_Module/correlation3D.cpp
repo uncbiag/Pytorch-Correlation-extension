@@ -83,33 +83,38 @@ static void correlate_patch_grad_3D(
   }
 }
 
-torch::Tensor correlation_cpp_forward(
+torch::Tensor correlation_cpp_forward_3D(
     torch::Tensor input1,
     torch::Tensor input2,
-    int kH, int kW,
-    int patchH, int patchW,
-    int padH, int padW,
-    int dilationH, int dilationW,
-    int dilation_patchH, int dilation_patchW,
-    int dH, int dW) {
+    int kH, int kW, int kW
+    int patchH, int patchW, int patchD,
+    int padH, int padW, int padD,
+    int dilationH, int dilationW, int dialationD,
+    int dilation_patchH, int dilation_patchW, int dialation_patchD,
+    int dH, int dW, int dD) {
 
   const auto batch_size = input1.size(0);
   const auto iH = input1.size(2);
   const auto iW = input1.size(3);
+  const auto iD = input1.size(4);
   const int patchRadH = (patchH - 1) / 2;
   const int patchRadW = (patchW - 1) / 2;
+  const int patchRadD = (patchD - 1) / 2;
   const int dilatedKH = (kH - 1) * dilationH + 1;
   const int dilatedKW = (kW - 1) * dilationW + 1;
+  const int dilatedKD = (kD - 1) * dilationD + 1;
 
   const auto oH = (iH + 2 * padH - dilatedKH) / dH + 1;
   const auto oW = (iW + 2 * padW - dilatedKW) / dW + 1;
-  auto output = at::zeros({batch_size, patchH, patchW, oH, oW}, input1.options());
+  const auto oD = (iD + 2 * padD - dilatedKD) / dD + 1;
+  auto output = at::zeros({batch_size, patchH, patchW, patchD, oH, oW, oD}, input1.options());
 
-  int n, ph, pw, h, w;
+  int n, ph, pw, pd, h, w, d;
   #pragma omp parallel for private(n, ph, pw, h, w) collapse(2)
     for (n = 0; n < batch_size; ++n) {
       for(ph = 0; ph < patchH; ++ph){
         for(pw = 0; pw < patchW; ++pw){
+            for(pd = 0; pd < patchD; ++pd){
           AT_DISPATCH_FLOATING_TYPES(input1.scalar_type(), "correlation_forward_cpp", ([&] {
             auto input1_acc = input1.accessor<scalar_t, 4>();
             auto input2_acc = input2.accessor<scalar_t, 4>();
